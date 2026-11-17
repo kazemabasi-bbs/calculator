@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>ماشین حساب</title>
+<style>
+:root{--bg:#000;--card:#1c1c1e;--key:#333;--fn:#a5a5a5;--op:#ff9f0a;--sep:#38383a;--txt:#fff;--sub:#8e8e93;--font:"B Nazanin","BNazanin",Nazanin,"Vazirmatn",Tahoma,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:13px/1.6 var(--font);overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+.app{max-width:430px;height:100%;margin:0 auto;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.screen{flex:1;min-height:0;display:none;flex-direction:column;overflow:auto}
+.screen.on{display:flex}
+/* tab bar */
+.tabs{display:flex;border-top:1px solid var(--sep);background:#0b0b0c;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;background:none;border:0;padding:8px 0 6px;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:0;cursor:pointer}
+.tabs button.on{color:var(--op)}
+.tabs svg{width:24px;height:24px}
+/* calculator */
+#calc{justify-content:flex-end;padding:0 14px 14px}
+.disp{direction:ltr;text-align:right;white-space:nowrap;font-size:64px;line-height:1.1;font-weight:300;padding:0 6px 10px;min-height:84px;overflow:hidden;font-feature-settings:"tnum"}
+.addbar{display:flex;justify-content:space-between;align-items:center;padding:0 6px 10px;min-height:34px}
+.pill{background:var(--card);border:0;border-radius:17px;padding:4px 14px;color:var(--op);cursor:pointer}
+.pill:active{opacity:.6}
+.pad{direction:ltr;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.k{border:0;border-radius:50%;aspect-ratio:1;font-size:30px;background:var(--key);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:filter .12s}
+.k:active{filter:brightness(1.6)}
+.k.fn{background:var(--fn);color:#000}
+.k.fn:active{filter:brightness(1.3)}
+.k.op{background:var(--op);color:#fff;font-size:36px}
+.k.op:active{filter:brightness(1.25)}
+.k.op.act{background:#fff;color:var(--op)}
+.k.z{grid-column:span 2;aspect-ratio:auto;border-radius:999px;justify-content:flex-start;padding-left:10%}
+/* list */
+#list{padding:12px 14px 14px}
+h1{font-size:22px;margin:4px 4px 10px;font-weight:700}
+.rows{display:flex;flex-direction:column;gap:10px}
+.row{background:var(--card);border-radius:14px;padding:10px 12px;display:grid;gap:6px}
+.row .top{display:flex;gap:8px;align-items:center}
+.row input{background:transparent;border:0;outline:0;min-width:0}
+.row .d{flex:1;border-bottom:1px solid var(--sep);padding:2px 0}
+.nums{display:grid;grid-template-columns:1fr 1.4fr 1.6fr;gap:8px;align-items:center}
+.nums input{width:100%;background:#2c2c2e;border-radius:8px;padding:6px 8px;text-align:center;direction:ltr}
+.nums input:focus,.d:focus{box-shadow:0 0 0 1.5px var(--op)}
+.nums label{display:block;color:var(--sub);font-size:11px;text-align:center}
+.sum{direction:ltr;text-align:center;font-weight:700;color:var(--op);padding:6px 0}
+.ib{width:24px;height:24px;background:none;border:0;color:var(--sub);cursor:pointer;padding:0}
+.ib svg{width:100%;height:100%}
+.ib:active{color:var(--op)}
+.total{background:var(--card);border-radius:14px;padding:12px;margin-top:10px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.total b{font-size:13px}
+.total .v{direction:ltr;text-align:left;font-weight:700}
+.total .big{font-size:20px;color:var(--op)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btns button{flex:1 1 140px;background:var(--card);border:0;border-radius:12px;padding:9px 10px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
+.btns button.main{background:var(--op);color:#fff}
+.btns button:active{opacity:.7}
+.btns svg{width:18px;height:18px}
+.empty{color:var(--sub);text-align:center;padding:20px}
+#toast{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:50%;transform:translate(-50%,-80px);background:#2c2c2e;padding:6px 16px;border-radius:16px;transition:.25s;z-index:9}
+#toast.on{transform:translate(-50%,0)}
+@media (max-height:640px){.disp{font-size:48px;min-height:60px}.k{font-size:24px}.pad{gap:8px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<section id="calc" class="screen on">
+  <div class="addbar">
+    <button class="pill" id="toList">افزودن نتیجه به لیست</button>
+    <span style="color:var(--sub)" id="opHint"></span>
+  </div>
+  <div class="disp" id="disp">۰</div>
+  <div class="pad" id="pad">
+    <button class="k fn" data-a="ac" id="acBtn">AC</button>
+    <button class="k fn" data-a="sign">±</button>
+    <button class="k fn" data-a="pct">%</button>
+    <button class="k op" data-o="/">÷</button>
+    <button class="k" data-d="7">۷</button><button class="k" data-d="8">۸</button><button class="k" data-d="9">۹</button>
+    <button class="k op" data-o="*">×</button>
+    <button class="k" data-d="4">۴</button><button class="k" data-d="5">۵</button><button class="k" data-d="6">۶</button>
+    <button class="k op" data-o="-">−</button>
+    <button class="k" data-d="1">۱</button><button class="k" data-d="2">۲</button><button class="k" data-d="3">۳</button>
+    <button class="k op" data-o="+">+</button>
+    <button class="k z" data-d="0">۰</button>
+    <button class="k" data-a="dot">٫</button>
+    <button class="k op" data-a="eq">=</button>
+  </div>
+</section>
+
+<section id="list" class="screen">
+  <div id="capture" style="background:#000;padding:4px">
+    <h1>فهرست محاسبات</h1>
+    <div class="rows" id="rows"></div>
+    <div class="total" id="total"></div>
+  </div>
+  <div class="btns">
+    <button id="add" class="main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>ردیف جدید</button>
+    <button id="copyAll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="8" width="13" height="13" rx="2"/><rect x="3" y="3" width="13" height="13" rx="2"/></svg>رونوشت متنی کل صفحه</button>
+    <button id="shareImg"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l7-4M8.6 13.4l7 4" stroke="currentColor" stroke-width="1.6"/></svg>اشتراک کل صفحه (عکس)</button>
+    <button id="clear">پاک کردن همه</button>
+  </div>
+</section>
+
+<nav class="tabs">
+  <button class="on" data-t="calc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8.5 12h1M12 12h1M15.5 12h.5M8.5 16h1M12 16h1M15.5 16h.5"/></svg>ماشین حساب</button>
+  <button data-t="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 6h11M9 12h11M9 18h11M4 6h.5M4 12h.5M4 18h.5"/></svg>لیست</button>
+</nav>
+</div>
+<div id="toast"></div>
+
+<script src="html2canvas.min.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';document.head.appendChild(s)"></script>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+/* ---------- helpers ---------- */
+var P='۰۱۲۳۴۵۶۷۸۹';
+function toFa(s){return String(s).replace(/[0-9]/g,function(d){return P[d]})}
+function toEn(s){return String(s).replace(/[۰-۹]/g,function(d){return P.indexOf(d)}).replace(/[٠-٩]/g,function(d){return d.charCodeAt(0)-1632})}
+function group(i){return i.replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+/* "-1234.50" -> "-۱,۲۳۴٫۵۰" (keeps what the user typed) */
+function show(s){
+  s=String(s);if(/e/i.test(s))return toFa(s);
+  var neg=s[0]==='-';if(neg)s=s.slice(1);
+  var p=s.split('.'),r=group(p[0]);if(p.length>1)r+='.'+p[1];
+  return toFa((neg?'-':'')+r).replace(/\./g,'٫').replace(/,/g,'٬');
+}
+function clean(n){return Number(n.toPrecision(12)).toString()}
+function num(s){var v=parseFloat(toEn(s).replace(/[,٬،\s]/g,'').replace(/[٫]/g,'.'));return isNaN(v)?0:v}
+function fmt(n){return show(clean(Math.round(n*1e6)/1e6))}
+var tt;function toast(t){var e=$('#toast');e.textContent=t;e.className='on';clearTimeout(tt);tt=setTimeout(function(){e.className=''},1600)}
+function haptic(){try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
+
+/* ---------- calculator ---------- */
+var cur='0',acc=null,op=null,fresh=false,lastOp=null,lastB=0,err=false;
+var disp=$('#disp'),acBtn=$('#acBtn');
+function compute(a,o,b){
+  if(o==='+')return a+b;if(o==='-')return a-b;if(o==='*')return a*b;
+  if(o==='/'){if(b===0)throw 0;return a/b}
+}
+function render(){
+  disp.textContent=err?'خطا':show(cur);
+  var n=disp.textContent.length,sz=64-Math.max(0,n-7)*5;
+  if(innerHeight<=640)sz=Math.round(sz*.75);
+  disp.style.fontSize=Math.max(28,sz)+'px';
+  acBtn.textContent=(cur!=='0'&&!fresh)||err?'C':'AC';
+  document.querySelectorAll('.k.op[data-o]').forEach(function(b){b.classList.toggle('act',b.dataset.o===op&&fresh)});
+}
+function setRes(r){cur=clean(r);if(cur==='-0')cur='0'}
+function press(btn){
+  haptic();
+  var d=btn.dataset.d,o=btn.dataset.o,a=btn.dataset.a;
+  if(err&&a!=='ac'){return}
+  try{
+    if(d!==undefined){
+      if(fresh){cur='0';fresh=false;if(!op)lastOp=null}
+      if(cur.replace(/[-.]/g,'').length<15)cur=(cur==='0'?'':cur==='-0'?'-':cur)+d;
+    }else if(a==='dot'){
+      if(fresh){cur='0';fresh=false}
+      if(cur.indexOf('.')<0)cur+='.';
+    }else if(o){
+      if(op&&!fresh){acc=compute(acc,op,parseFloat(cur));setRes(acc)}else acc=parseFloat(cur);
+      op=o;fresh=true;lastOp=null;
+    }else if(a==='eq'){
+      if(op){var b=parseFloat(cur);lastOp=op;lastB=b;setRes(compute(acc,op,b));op=null;acc=null}
+      else if(lastOp){setRes(compute(parseFloat(cur),lastOp,lastB))}
+      fresh=true;
+    }else if(a==='sign'){
+      cur=cur[0]==='-'?cur.slice(1):(cur==='0'?cur:'-'+cur);
+    }else if(a==='pct'){
+      setRes(parseFloat(cur)/100);fresh=true;
+    }else if(a==='ac'){
+      if(btn.textContent==='C'&&!err){cur='0';fresh=false}
+      else{cur='0';acc=null;op=null;lastOp=null;fresh=false;err=false}
+    }
+  }catch(e){err=true;cur='0';acc=null;op=null}
+  render();
+}
+$('#pad').addEventListener('click',function(e){var b=e.target.closest('.k');if(b)press(b)});
+document.addEventListener('keydown',function(e){
+  if($('#calc').classList.contains('on')&&!/INPUT/.test(document.activeElement.tagName)){
+    var k=e.key,m={'+':'+','-':'-','*':'*','/':'/'};
+    var sel=null;
+    if(/^[0-9]$/.test(k))sel='[data-d="'+k+'"]';
+    else if(m[k])sel='[data-o="'+m[k]+'"]';
+    else if(k==='Enter'||k==='=')sel='[data-a="eq"]';
+    else if(k==='.'||k===',')sel='[data-a="dot"]';
+    else if(k==='%')sel='[data-a="pct"]';
+    else if(k==='Escape')sel='[data-a="ac"]';
+    else if(k==='Backspace'&&!fresh&&!err){cur=cur.length>1&&cur!=='-0'?cur.slice(0,-1):'0';if(cur==='-')cur='0';render();return}
+    if(sel){e.preventDefault();var b=$('#pad '+sel);if(b)press(b)}
+  }
+});
+
+/* ---------- list ---------- */
+var rows=[],rowsEl=$('#rows');
+try{rows=JSON.parse(localStorage.getItem('calc-v2')||'[]')}catch(e){}
+function save(){try{localStorage.setItem('calc-v2',JSON.stringify(rows))}catch(e){}}
+var IC_COPY='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="8" width="13" height="13" rx="2"/><rect x="3" y="3" width="13" height="13" rx="2"/></svg>';
+var IC_SH='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6l7-4M8.6 13.4l7 4" stroke="currentColor" stroke-width="1.6"/></svg>';
+var IC_DEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>';
+function rowSum(r){return num(r.q)*num(r.p)}
+var RLM='\u200F',LINE='━━━━━━━━━━━━━━';
+function filled(r){return r.d||r.q||r.p}
+function rowBody(r,i){
+  var q=r.q||'۰',p=r.p||'۰';
+  return RLM+toFa(i+1)+') '+(r.d||'بدون شرح')+'\n'+RLM+'      '+q+' × '+p+' = '+fmt(rowSum(r));
+}
+function rowText(r,i){return rowBody(r,i)}
+function totalBlock(){
+  var t=totals();
+  return RLM+'📦 جمع تعداد: '+fmt(t.Q)+'\n'+RLM+'💵 جمع مبالغ: '+fmt(t.P)+'\n'+RLM+'💰 جمع کل: '+fmt(t.S);
+}
+function totalText(){return totalBlock()}
+function allText(){
+  var list=rows.filter(filled),date=new Date().toLocaleDateString('fa-IR');
+  var out=[RLM+'🧮 فهرست محاسبات',RLM+'📅 '+date,LINE];
+  list.forEach(function(r,i){out.push(rowBody(r,i));if(i<list.length-1)out.push('')});
+  out.push(LINE,totalBlock());
+  return out.join('\n');
+}
+function renderTotal(){
+  var t=totals();
+  $('#total').innerHTML='<b>جمع تعداد</b><span class="v">'+fmt(t.Q)+'</span><b>جمع مبالغ</b><span class="v">'+fmt(t.P)+'</span><b>جمع کل</b><span class="v big">'+fmt(t.S)+'</span>';
+}
+function renderRows(){
+  rowsEl.innerHTML='';
+  if(!rows.length){rowsEl.innerHTML='<div class="empty">هنوز ردیفی ندارید. «ردیف جدید» را بزنید یا نتیجه‌ی ماشین حساب را اضافه کنید.</div>'}
+  rows.forEach(function(r,i){
+    var el=document.createElement('div');el.className='row';
+    el.innerHTML='<div class="top"><span style="color:var(--sub)">'+toFa(i+1)+'</span><input class="d" placeholder="شرح" aria-label="شرح"><span class="ic" data-html2canvas-ignore style="display:flex;gap:6px"><button class="ib cp" title="کپی ردیف">'+IC_COPY+'</button><button class="ib sh" title="اشتراک ردیف">'+IC_SH+'</button><button class="ib dl" title="حذف ردیف">'+IC_DEL+'</button></span></div>'+
+    '<div class="nums"><div><label>تعداد</label><input class="q" inputmode="decimal" placeholder="۰"></div><div><label>مبلغ</label><input class="p" inputmode="decimal" placeholder="۰"></div><div><label>جمع</label><div class="sum"></div></div></div>';
+    var d=el.querySelector('.d'),q=el.querySelector('.q'),p=el.querySelector('.p'),s=el.querySelector('.sum');
+    d.value=r.d||'';q.value=r.q||'';p.value=r.p||'';
+    function upd(){s.textContent=(r.q||r.p)?fmt(rowSum(r)):'۰'}
+    d.oninput=function(){r.d=d.value;save()};
+    [q,p].forEach(function(inp,k){inp.oninput=function(){
+      var raw=toEn(inp.value).replace(/[^0-9.٫]/g,'').replace('٫','.');
+      var pr=raw.split('.');if(pr.length>2)raw=pr[0]+'.'+pr.slice(1).join('');
+      inp.value=raw?show(raw):'';
+      r[k?'p':'q']=inp.value;upd();renderTotal();save();
+    }});
+    el.querySelector('.cp').onclick=function(){copy(rowText(r,i))};
+    el.querySelector('.sh').onclick=function(){shareText(rowText(r,i))};
+    el.querySelector('.dl').onclick=function(){rows.splice(i,1);save();renderRows()};
+    upd();rowsEl.appendChild(el);
+  });
+  renderTotal();
+}
+function copy(t){
+  function fb(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('کپی شد')}catch(e){toast('کپی نشد')}a.remove()}
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(function(){toast('کپی شد')},fb);else fb();
+}
+var NP=(window.Capacitor&&window.Capacitor.Plugins)||{};
+function shareText(t){
+  if(NP.Share)NP.Share.share({text:t}).catch(function(){});
+  else if(navigator.share)navigator.share({text:t}).catch(function(){});
+  else copy(t);
+}
+function shareImage(){
+  if(!window.html2canvas){toast('کتابخانه‌ی ساخت عکس بارگذاری نشد');return}
+  html2canvas($('#capture'),{backgroundColor:'#000',scale:2}).then(function(c){
+    if(NP.Share&&NP.Filesystem){
+      var data=c.toDataURL('image/png').split(',')[1];
+      NP.Filesystem.writeFile({path:'calculator.png',data:data,directory:'CACHE'})
+        .then(function(r){return NP.Share.share({files:[r.uri]})})
+        .catch(function(){toast('اشتراک ناموفق بود')});
+      return;
+    }
+    c.toBlob(function(b){
+      var f=new File([b],'calculator.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[f]}))navigator.share({files:[f]}).catch(function(){});
+      else{var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='calculator.png';a.click();toast('عکس ذخیره شد')}
+    });
+  });
+}
+$('#add').onclick=function(){rows.push({d:'',q:'',p:''});save();renderRows()};
+$('#copyAll').onclick=function(){copy(allText())};
+$('#shareImg').onclick=shareImage;
+$('#clear').onclick=function(){if(!rows.length||confirm('همه‌ی ردیف‌ها پاک شوند؟')){rows=[];save();renderRows()}};
+$('#toList').onclick=function(){
+  if(err)return;
+  var v=op&&!fresh?cur:cur;
+  rows.push({d:'',q:show('1'),p:show(v)});save();renderRows();tab('list');toast('به لیست اضافه شد');
+};
+
+/* ---------- tabs ---------- */
+function tab(n){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.toggle('on',s.id===n)});
+  document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===n)});
+  if(n==='calc')render();
+}
+document.querySelector('.tabs').addEventListener('click',function(e){var b=e.target.closest('button');if(b)tab(b.dataset.t)});
+
+if(!rows.length)rows=[{d:'',q:'',p:''}];
+renderRows();render();
+})();
+</script>
+</body>
+</html>
